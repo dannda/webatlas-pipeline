@@ -132,8 +132,20 @@ process image_to_zarr {
 
     script:
     filename = keep_filename ? image.baseName : ([*stem, prefix, img_type] - null - "").join("-")
+    tmp_uncompressed_image = "tmp-uncompressed-${filename}.tif"
     tmp_image = "tmp-${filename}.tif"
     """
+    if tiffinfo ${image} | grep "Compression Scheme:" | grep -wq "JPEG"
+    then
+        if od -h -j2 -N2 ${image} | head -n1 | sed 's/[0-9]*  *//' | grep -q -E '002b|2b00'
+        then
+            tiffcp -c none -m 0 -8 ${image} ${tmp_uncompressed_image}
+        else
+            tiffcp -c none -m 0 ${image} ${tmp_uncompressed_image} || tiffcp -c none -m 0 -8 ${image} ${tmp_uncompressed_image}
+        fi
+    else
+        ln -s ${image} ${tmp_uncompressed_image}
+    fi
     if [[ ${rotate_degrees} != "NO_ROT" ]]
     then
         if [[ ${rotate_degrees} != 90 && ${rotate_degrees} != 180 && ${rotate_degrees} != 270 ]]
@@ -141,23 +153,12 @@ process image_to_zarr {
             echo "Invalid rotation value: ${rotate_degrees}"
             exit 1
         else
-            rotate_image.py ${image} ${tmp_image} ${rotate_degrees}
+            rotate_image.py ${tmp_uncompressed_image} ${tmp_image} ${rotate_degrees}
         fi
     else
-        ln -s ${image} ${tmp_image}
+        ln -s ${tmp_uncompressed_image} ${tmp_image}
     fi
-    if tiffinfo ${tmp_image} | grep "Compression Scheme:" | grep -wq "JPEG"
-    then
-        if od -h -j2 -N2 ${tmp_image} | head -n1 | sed 's/[0-9]*  *//' | grep -q -E '002b|2b00'
-        then
-            tiffcp -c none -m 0 -8 ${tmp_image} uncompressed.tif
-        else
-            tiffcp -c none -m 0 ${tmp_image} uncompressed.tif || tiffcp -c none -m 0 -8 ${tmp_image} uncompressed.tif
-        fi
-        bioformats2raw --no-hcs uncompressed.tif ${filename}.zarr
-    else
-        bioformats2raw --no-hcs ${tmp_image} ${filename}.zarr
-    fi
+    bioformats2raw --no-hcs ${tmp_image} ${filename}.zarr
     consolidate_md.py ${filename}.zarr
     """
 }
