@@ -309,7 +309,7 @@ def read_anndata(path: str):
         z = zarr.open(path)
         adata = ad.read_zarr(z.store)
     else:
-        adata = ad.read(path)
+        adata = ad.read_h5ad(path)
 
     return adata
 

@@ -22,10 +22,7 @@ logging.getLogger().setLevel(logging.INFO)
 
 def read_image(path: str, is_label: bool = False):
     tif = tf.TiffFile(path)
-    dims = list(tif.series[0].axes.lower()
-                .replace("s", "c")
-                .replace("i", "c")
-               )
+    dims = list(tif.series[0].axes.lower().replace("s", "c").replace("i", "c"))
     image = imread(path).squeeze()
     imarray = xr.DataArray(image, dims=dims).chunk(chunks="auto")
     if is_label:
@@ -53,7 +50,7 @@ def write_spatialdata(
         str: Output SpatialData filename
     """
     if anndata_path.endswith(".h5ad"):
-        adata = ad.read(anndata_path, backed=True)
+        adata = ad.read_h5ad(anndata_path, backed=True)
     elif anndata_path.endswith(".zarr"):
         adata = ad.read_zarr(anndata_path)
     else:

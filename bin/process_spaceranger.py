@@ -160,7 +160,7 @@ def visium_label(
     if os.path.isdir(file_path):
         adata = spaceranger_to_anndata(file_path)
     else:
-        adata = sc.read(file_path)
+        adata = sc.read_h5ad(file_path)
 
     sample_id = sample_id or list(adata.uns["spatial"].keys())[0]
 

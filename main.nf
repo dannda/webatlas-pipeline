@@ -468,37 +468,37 @@ workflow Output_to_config {
 }
 
 
-workflow Output_to_spatialdata {
-    take: 
-    anndata_files
-    img_tifs
+// workflow Output_to_spatialdata {
+//     take: 
+//     anndata_files
+//     img_tifs
     
-    main:
-        img_tifs
-            .map { stem, prefix, type, img, k -> 
-                [stem, [type: type, img: img]]
-            }
-            .branch { stem, data ->
-                raw: data.type == "raw"
-                label: data.type == "label"
-            }
-        .set{tif_files}
+//     main:
+//         img_tifs
+//             .map { stem, prefix, type, img, k -> 
+//                 [stem, [type: type, img: img]]
+//             }
+//             .branch { stem, data ->
+//                 raw: data.type == "raw"
+//                 label: data.type == "label"
+//             }
+//         .set{tif_files}
 
-        anndata_files
-            .join(tif_files.raw, remainder: true)
-            .join(tif_files.label, remainder: true)
-            .map { stem, anndata, raw_tif, label_tif -> [
-                stem, anndata,
-                raw_tif ? raw_tif.img : [],
-                label_tif ? label_tif.img : []
-            ]}
-            .set{data_for_sd}
+//         anndata_files
+//             .join(tif_files.raw, remainder: true)
+//             .join(tif_files.label, remainder: true)
+//             .map { stem, anndata, raw_tif, label_tif -> [
+//                 stem, anndata,
+//                 raw_tif ? raw_tif.img : [],
+//                 label_tif ? label_tif.img : []
+//             ]}
+//             .set{data_for_sd}
 
-        write_spatialdata(
-            data_for_sd
-        )
+//         write_spatialdata(
+//             data_for_sd
+//         )
         
-}
+// }
 
 workflow {
     Full_pipeline()
