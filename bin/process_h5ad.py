@@ -20,9 +20,13 @@ import warnings
 from scipy.sparse import spmatrix, csr_matrix, csc_matrix
 from constants.suffixes import ANNDATA_ZARR_SUFFIX
 from utils import visium_image_size
+from tqdm import tqdm
 
+os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
 warnings.filterwarnings("ignore")
 logging.getLogger().setLevel(logging.INFO)
+ad.settings.zarr_write_format = 3
+zarr.config.set({"async.concurrency": 1})
 
 
 def h5ad_to_zarr(
@@ -33,6 +37,9 @@ def h5ad_to_zarr(
     batch_processing: bool = False,
     batch_size: int = 10000,
     consolidate_metadata: bool = True,
+    convert_strings_to_categoricals: bool = False,
+    chunks_per_shard: int = 100,
+    append: bool = False,
     **kwargs,
 ) -> str:
     """This function takes an AnnData object or path to an h5ad file,
@@ -59,65 +66,125 @@ def h5ad_to_zarr(
         str: Output Zarr filename
     """
 
-    if not adata:
-        if not batch_processing:
-            adata = sc.read(path)
-        else:
-            batch_size = max(1, batch_size)
-            logging.info("Batch processing with batch size {}".format(batch_size))
-            with h5py.File(path, "r") as f:
-                # Load everything but X and layers
-                adata = ad.AnnData(
-                    obs=ad._io.h5ad.read_elem(f["obs"]) if "obs" in f else None,
-                    var=ad._io.h5ad.read_elem(f["var"]) if "var" in f else None,
-                    obsm=ad._io.h5ad.read_elem(f["obsm"]) if "obsm" in f else None,
-                    obsp=ad._io.h5ad.read_elem(f["obsp"]) if "obsp" in f else None,
-                    varm=ad._io.h5ad.read_elem(f["varm"]) if "varm" in f else None,
-                    varp=ad._io.h5ad.read_elem(f["varp"]) if "varp" in f else None,
-                    uns=ad._io.h5ad.read_elem(f["uns"]) if "uns" in f else None,
-                )
-
-    adata = preprocess_anndata(adata, **kwargs)
-
-    zarr_file = (
+    zarr_dir = (
         f"{stem}-{ANNDATA_ZARR_SUFFIX}"
         if not stem.endswith("-" + os.path.splitext(ANNDATA_ZARR_SUFFIX)[0])
         else f"{stem}{os.path.splitext(ANNDATA_ZARR_SUFFIX)[1]}"
     )
 
-    if not batch_processing:
+    if adata is not None:
+        adata = preprocess_anndata(adata, **kwargs)
+
+        # @TODO: support batch processing to avoid .toarray() of whole matrix
         # matrix sparse to dense
         if isinstance(adata.X, spmatrix):
             # use toarray() as it generates a ndarray, instead of todense() which generates a matrix
             adata.X = adata.X.toarray()
 
-        adata.write_zarr(zarr_file, [adata.shape[0], chunk_size])
-    elif path and batch_processing:
-        adata.write_zarr(zarr_file)
+        adata.write_zarr(
+            zarr_dir,
+            [adata.shape[0], chunk_size],
+            convert_strings_to_categoricals=convert_strings_to_categoricals,
+        )
+        return zarr_dir
+
+    with h5py.File(path, "r") as f:
+        adata = ad.AnnData(
+            obs=ad._io.h5ad.read_elem(f["obs"]) if "obs" in f else None,
+            var=ad._io.h5ad.read_elem(f["var"]) if "var" in f else None,
+            obsm=ad._io.h5ad.read_elem(f["obsm"]) if "obsm" in f else None,
+            obsp=ad._io.h5ad.read_elem(f["obsp"]) if "obsp" in f else None,
+            varm=ad._io.h5ad.read_elem(f["varm"]) if "varm" in f else None,
+            varp=ad._io.h5ad.read_elem(f["varp"]) if "varp" in f else None,
+            uns=(ad._io.h5ad.read_elem(f["uns"]) if "uns" in f else None),
+        )
 
         m = len(adata.obs)
         n = len(adata.var)
 
-        with h5py.File(path, "r") as f:
-            if isinstance(f["X"], h5py.Group) and "indptr" in f["X"].keys():
-                if len(f["X"]["indptr"]) - 1 == m:
-                    logging.info("Batch processing sparse CSR matrix...")
-                    batch_process_sparse(path, zarr_file, m, n, batch_size, chunk_size)
-                elif len(f["X"]["indptr"]) - 1 == n:
-                    logging.info("Batch processing sparse CSC matrix...")
-                    batch_process_sparse(
-                        path, zarr_file, m, n, batch_size, chunk_size, is_csc=True
-                    )
-                else:
-                    raise SystemError("Error identifying sparse matrix format")
+        logging.info("Matrix shape: {} x {}".format(m, n))
+
+        is_sparse = isinstance(f["X"], h5py.Group) and "indptr" in f["X"].keys()
+        if is_sparse:
+            if len(f["X"]["indptr"]) - 1 == m:
+                is_csc = False
+            elif len(f["X"]["indptr"]) - 1 == n:
+                is_csc = True
             else:
-                logging.info("Batch processing dense matrix...")
-                batch_process_array(path, zarr_file, m, n, batch_size, chunk_size)
+                raise SystemError("Error identifying sparse matrix format")
+
+    adata = preprocess_anndata(adata, **kwargs)
+
+    # Write anndata tables to zarr
+    logging.info("Writing anndata tables")
+    adata.write_zarr(
+        zarr_dir, convert_strings_to_categoricals=convert_strings_to_categoricals
+    )
+
+    if os.path.exists(os.path.join(zarr_dir, ".zmetadata")):
+        os.remove(os.path.join(zarr_dir, ".zmetadata"))
+
+    if batch_processing:
+        batch_size = max(1, batch_size)
+        logging.info("Batch processing with batch size {}".format(batch_size))
+    else:
+        batch_size = m if is_sparse and not is_csc else n
+
+    if chunks_per_shard:
+        shards = (m, chunk_size * chunks_per_shard)
+
+    if append:
+        z = zarr.create_array(
+            zarr_dir,
+            name="X",
+            shape=(m, 0) if not is_sparse else (m if is_csc else 0, 0 if is_csc else n),
+            chunks=(m, chunk_size),
+            dtype="float32",
+            shards=shards,
+        )
+    else:
+        z = zarr.create_array(
+            zarr_dir,
+            name="X",
+            shape=(m, n),
+            chunks=(m, chunk_size),
+            dtype="float32",
+            shards=shards,
+            overwrite=True,
+        )
+
+    logging.info("Chunk shape: {}. Shards: {}".format(z.chunks, z.shards))
+
+    if is_sparse:
+        batch_process_sparse(
+            path,
+            zarr_dir=zarr_dir,
+            m=m,
+            n=n,
+            batch_size=batch_size,
+            chunk_size=chunk_size,
+            shards=shards,
+            is_csc=is_csc,
+            append=append,
+        )
+    else:
+        batch_process_array(
+            path,
+            zarr_dir=zarr_dir,
+            m=m,
+            n=n,
+            batch_size=batch_size,
+            chunk_size=chunk_size,
+            shards=shards,
+            append=append,
+        )
 
     if consolidate_metadata:
-        zarr.consolidate_metadata(zarr_file)
+        zarr.consolidate_metadata(zarr_dir)
 
-    return zarr_file
+    logging.info("Wrote AnnData object to {}".format(zarr_dir))
+
+    return zarr_dir
 
 
 def reindex_anndata_obs(adata: ad.AnnData) -> ad.AnnData:
@@ -211,9 +278,9 @@ def rescale_spatial(adata: ad.AnnData, factor: float) -> ad.AnnData:
     """
     Rescale spatial coordinates in an AnnData object
     """
-    
+
     logging.info(f"Rescaling spatial coordinates by {factor}")
-    
+
     for spatial_key in ["spatial", "X_spatial"]:
         if spatial_key in adata.obsm:
             adata.obsm[spatial_key] = adata.obsm[spatial_key] * factor
@@ -252,7 +319,7 @@ def preprocess_anndata(
     adata = subset_anndata(
         adata, obs_subset=obs_subset, var_subset=var_subset, sample=sample
     )
-    
+
     if rescale_factor:
         adata = rescale_spatial(adata, rescale_factor)
 
@@ -260,10 +327,10 @@ def preprocess_anndata(
         if not spatial_shape:
             try:
                 spatial_shape = visium_image_size(adata)
-            except:
+            except Exception:
                 raise SystemError("Must provide spatial shape to rotate spatial data.")
         adata = rotate_anndata(adata, spatial_shape, rotate_degrees)
-    
+
     # reindex var with a specified column
     if var_index and var_index in adata.var:
         try:
@@ -313,18 +380,20 @@ def preprocess_anndata(
 
 def batch_process_sparse(
     file: str,
-    zarr_file: str,
+    zarr_dir: str,
     m: int,
     n: int,
     batch_size: int,
     chunk_size: int,
+    shards: str = None,
     is_csc: bool = False,
+    append: bool = False,
 ) -> None:
     """Function to incrementally load and write a sparse matrix to Zarr
 
     Args:
         file (str): Path to h5ad file
-        zarr_file (str): Path to output Zarr file
+        zarr_dir (str): Path to output Zarr dir
         m (int): Number of rows in the matrix
         n (int): Number of columns in the matrix
         batch_size (int): Number of rows/columns to load and write at a time
@@ -332,20 +401,20 @@ def batch_process_sparse(
         is_csc (bool, optional): If matrix is in CSC format instead of CSR format.
             Defaults to False.
     """
-    l = n if is_csc else m
-    z = zarr.open(zarr_file, mode="a")
-    z["X"] = zarr.empty(
-        (m if is_csc else 0, 0 if is_csc else n),
-        chunks=(m, chunk_size),
-        dtype="float32",
-    )
+
+    logging.info("Processing sparse {} matrix".format("CSC" if is_csc else "CSR"))
+
+    z = zarr.open_array(zarr_dir, path="X", mode="a")
+
+    compressed_dim = n if is_csc else m
+
     with h5py.File(file, "r") as f:
         indptr = f["X"]["indptr"][:]
-        batch_size = l if batch_size > l else batch_size
-        for i in range(l // batch_size + 1):
+        batch_size = compressed_dim if batch_size > compressed_dim else batch_size
+        for i in tqdm(range((compressed_dim + batch_size - 1) // batch_size)):
             j = i * batch_size
-            if j + batch_size > l:
-                batch_size = l - j
+            if j + batch_size > compressed_dim:
+                batch_size = compressed_dim - j
             k = j + batch_size
 
             indices = f["X"]["indices"][indptr[j] : indptr[k]]
@@ -362,28 +431,43 @@ def batch_process_sparse(
                     shape=(1 * batch_size, n),
                 )
 
-            z["X"].append(matrix.toarray(), axis=(1 * is_csc))
+            if append:
+                z.append(matrix.toarray(), axis=(1 * is_csc))
+            else:
+                if is_csc:
+                    z[:, j:k] = matrix.toarray()
+                else:
+                    z[j:k, :] = matrix.toarray()
     return
 
 
 def batch_process_array(
-    file: str, zarr_file: str, m: int, n: int, batch_size: int, chunk_size: int
+    file: str,
+    zarr_dir: str,
+    m: int,
+    n: int,
+    batch_size: int,
+    chunk_size: int,
+    shards: str = None,
+    append: bool = False,
 ) -> None:
     """Function to incrementally load and write a dense matrix to Zarr
 
     Args:
         file (str): Path to h5ad file
-        zarr_file (str): Path to output Zarr file
+        zarr_dir (str): Path to output Zarr dir
         m (int): Number of rows in the matrix
         n (int): Number of columns in the matrix
         batch_size (int): Number of columns to load and write at a time
         chunk_size (int): Output Zarr column chunk size
     """
-    z = zarr.open(zarr_file, mode="a")
-    z["X"] = zarr.empty((m, 0), chunks=(m, chunk_size), dtype="float32")
+
+    logging.info("Processing dense matrix")
+
+    z = zarr.open_array(zarr_dir, path="X", mode="a")
 
     with h5py.File(file, "r") as f:
-        for i in range(n // batch_size + 1):
+        for i in tqdm(range((n + batch_size - 1) // batch_size)):
             j = i * batch_size
             if j + batch_size > n:
                 batch_size = n - j
@@ -391,7 +475,10 @@ def batch_process_array(
 
             matrix = f["X"][:, j:k]
 
-            z["X"].append(matrix, axis=1)
+            if append:
+                z.append(matrix, axis=1)
+            else:
+                z[:, j:k] = matrix
     return
 
 
