@@ -16,6 +16,11 @@ import zarr
 from process_h5ad import h5ad_to_zarr
 from scipy.sparse import csc_matrix, csr_matrix, hstack, spmatrix
 
+os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
+logging.getLogger().setLevel(logging.INFO)
+ad.settings.zarr_write_format = 3
+zarr.config.set({"async.concurrency": 1})
+
 
 def reindex_and_concat(
     path: str, offset: int, features: str = None, args: dict[str, T.Any] = {}, **kwargs

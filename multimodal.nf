@@ -39,14 +39,14 @@ def parseExtendFeature (extend_feature){
     }
     else if (extend_feature instanceof String ){
         return [
-            file(extend_feature.endsWith(".h5ad") ? extend_feature : "NO_FT"),
+            file((extend_feature.endsWith(".h5ad") || extend_feature.endsWith(".csv")) ? extend_feature : "NO_FT"),
             [:]
         ]
     }
     else if (extend_feature instanceof Map){
         if (extend_feature["path"]){
-            if (!(extend_feature.path instanceof String && extend_feature.path.endsWith(".h5ad"))){
-                error "Invalid value for `extend_feature.path`. Expecting an .h5ad file."
+            if (!(extend_feature.path instanceof String && (extend_feature.path.endsWith(".h5ad") || extend_feature.path.endsWith(".csv")))){
+                error "Invalid value for `extend_feature.path`. Expecting an .h5ad or .csv file."
             }
             return [ file(extend_feature.path), extend_feature.args ?: [:] ]
         }

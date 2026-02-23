@@ -331,6 +331,22 @@ def preprocess_anndata(
                 raise SystemError("Must provide spatial shape to rotate spatial data.")
         adata = rotate_anndata(adata, spatial_shape, rotate_degrees)
 
+    # ensure data types for var
+    for col_name, col_data in adata.var.reset_index().items():
+        mod = False
+        if col_data.dtype == "string":
+            col_data = col_data.astype("str")
+            mod = True
+        elif col_data.dtype == "category" and col_data.cat.categories.dtype == "string":
+            col_data = col_data.astype("str").astype("category")
+            mod = True
+
+        if mod:
+            if col_name == adata.var.index.name:
+                adata.var.index = col_data
+            else:
+                adata.var[col_name] = col_data
+
     # reindex var with a specified column
     if var_index and var_index in adata.var:
         try:
@@ -359,11 +375,26 @@ def preprocess_anndata(
             sc.tl.umap(adata)
 
     # ensure data types for obs
-    for col in adata.obs:
-        if adata.obs[col].dtype in ["int8", "int64"]:
-            adata.obs[col] = adata.obs[col].astype("int32")
-        if adata.obs[col].dtype == "bool":
-            adata.obs[col] = adata.obs[col].astype(str).astype("category")
+    for col_name, col_data in adata.obs.reset_index().items():
+        mod = False
+        if col_data.dtype == "string":
+            col_data = col_data.astype("str")
+            mod = True
+        elif col_data.dtype == "category" and col_data.cat.categories.dtype == "string":
+            col_data = col_data.astype("str").astype("category")
+            mod = True
+        elif col_data.dtype in ["int8", "int64"]:
+            col_data = col_data.astype("int32")
+            mod = True
+        elif col_data.dtype == "bool":
+            col_data = col_data.astype(str).astype("category")
+            mod = True
+
+        if mod:
+            if col_name == adata.obs.index.name:
+                adata.obs.index = col_data
+            else:
+                adata.obs[col_name] = col_data
 
     # ensure data types for obsm
     for col in adata.obsm:

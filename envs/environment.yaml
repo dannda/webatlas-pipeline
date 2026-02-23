@@ -20,7 +20,7 @@ dependencies:
   - pyvips==2.2.1
   - regex==2023.8.8
   - rioxarray==0.15.0
-  - scanpy==1.11.5
+  - scanpy==1.11.0
   - scikit-image==0.22.0
   - scipy==1.14.1
   - tifffile==2023.9.26
