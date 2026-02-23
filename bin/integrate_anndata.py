@@ -1,19 +1,20 @@
 #!/usr/bin/env python3
 
-from typing import Union
-import typing as T
-import os
 import gc
-import fire
-import zarr
-import h5py
 import logging
+import os
+import typing as T
+from pathlib import Path
+from typing import Union
+
+import anndata as ad
+import fire
+import h5py
 import numpy as np
 import pandas as pd
-import anndata as ad
-from scipy.sparse import spmatrix, hstack, csr_matrix, csc_matrix
+import zarr
 from process_h5ad import h5ad_to_zarr
-from pathlib import Path
+from scipy.sparse import csc_matrix, csr_matrix, hstack, spmatrix
 
 
 def reindex_and_concat(
@@ -72,7 +73,7 @@ def concat_features(
             os.path.splitext(os.path.basename(data))[0]
         )
 
-    if features.endswith(".h5ad") and os.path.isfile(features):
+    if features.endswith((".csv", ".h5ad")) and os.path.isfile(features):
         adata = concat_matrix_from_cell2location(adata, features, **kwargs)
     elif features.startswith("obs/"):
         adata = concat_matrix_from_obs(adata, features.split("/")[1], **kwargs)
@@ -156,12 +157,16 @@ def concat_matrix_from_cell2location(
     else:
         adata = read_anndata(data)
 
-    with h5py.File(c2l_file) as f:
-        c2l_adata = ad.AnnData(
-            obs=ad._io.h5ad.read_elem(f["obs"]) if "obs" in f else None,
-            var=ad._io.h5ad.read_elem(f["var"]) if "var" in f else None,
-            obsm=ad._io.h5ad.read_elem(f["obsm"]) if "obsm" in f else None,
-        )
+    if c2l_file.endswith(".csv"):
+        df = pd.read_csv(c2l_file, index_col=0)
+        c2l_adata = ad.AnnData(obs=df.index.to_frame(), obsm={q: df})
+    else:
+        with h5py.File(c2l_file) as f:
+            c2l_adata = ad.AnnData(
+                obs=ad._io.h5ad.read_elem(f["obs"]) if "obs" in f else None,
+                var=ad._io.h5ad.read_elem(f["var"]) if "var" in f else None,
+                obsm=ad._io.h5ad.read_elem(f["obsm"]) if "obsm" in f else None,
+            )
 
     if sample:
         c2l_adata = c2l_adata[c2l_adata.obs[sample[0]] == sample[1]]
