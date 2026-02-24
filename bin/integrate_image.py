@@ -44,7 +44,12 @@ def reindex_label_zarr(label_image_path: str, offset: int, out_filename: str) ->
 
     store = parse_url(out_filename, mode="w").store
     tmp_group = zarr.open_group(store=store, mode="w", zarr_format=zarr_format)
-    write_multiscale(reindexed_labels, tmp_group, compute=True)
+    write_multiscale(
+        reindexed_labels,
+        tmp_group,
+        compute=True,
+        storage_options=dict(dimension_separator="/"),
+    )
     zarr.consolidate_metadata(out_filename)
     os.makedirs(f"{out_filename}/OME", exist_ok=True)
     shutil.copy(
