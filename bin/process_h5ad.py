@@ -75,17 +75,41 @@ def h5ad_to_zarr(
     if adata is not None:
         adata = preprocess_anndata(adata, **kwargs)
 
-        # @TODO: support batch processing to avoid .toarray() of whole matrix
-        # matrix sparse to dense
-        if isinstance(adata.X, spmatrix):
-            # use toarray() as it generates a ndarray, instead of todense() which generates a matrix
-            adata.X = adata.X.toarray()
+        m = len(adata.obs)
+
+        X = adata.X
+        del adata.X
 
         adata.write_zarr(
             zarr_dir,
-            [adata.shape[0], chunk_size],
             convert_strings_to_categoricals=convert_strings_to_categoricals,
         )
+
+        # @TODO: support batch processing to avoid .toarray() of whole matrix
+        # matrix sparse to dense
+        if isinstance(X, spmatrix):
+            # use toarray() as it generates a ndarray, instead of todense() which generates a matrix
+            X = X.toarray()
+
+        if chunks_per_shard:
+            shards = (m, chunk_size * chunks_per_shard)
+        else:
+            shards = None
+
+        zarr.create_array(
+            zarr_dir,
+            name="X",
+            data=X,
+            chunks=(m, chunk_size),
+            shards=shards,
+            dtype="float32",
+        )
+
+        if consolidate_metadata:
+            zarr.consolidate_metadata(zarr_dir)
+
+        logging.info("Wrote AnnData object to {}".format(zarr_dir))
+
         return zarr_dir
 
     with h5py.File(path, "r") as f:
@@ -132,6 +156,8 @@ def h5ad_to_zarr(
 
     if chunks_per_shard:
         shards = (m, chunk_size * chunks_per_shard)
+    else:
+        shards = None
 
     if append:
         z = zarr.create_array(
