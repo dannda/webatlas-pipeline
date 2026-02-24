@@ -317,7 +317,7 @@ def get_feature_intersection(*paths):
     for path in paths:
         is_zarr = path.split(".")[-1] == "zarr"
         if is_zarr:
-            z = zarr.open(path, "r")
+            z = zarr.open(path, mode="r")
             var_idx = (
                 z["var"].attrs["_index"] if "_index" in z["var"].attrs else "_index"
             )
@@ -336,7 +336,7 @@ def read_anndata(path: str):
     is_zarr = os.path.splitext(path)[-1] == ".zarr"
 
     if is_zarr:
-        z = zarr.open(path)
+        z = zarr.open(path, mode="r")
         adata = ad.read_zarr(z.store)
     else:
         adata = ad.read_h5ad(path)

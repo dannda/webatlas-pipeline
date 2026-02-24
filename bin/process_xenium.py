@@ -149,7 +149,7 @@ def xenium_label(
     else:
         cells_file = path
 
-    z = zarr.open(cells_file, "r")
+    z = zarr.open(cells_file, mode="r")
 
     with open(os.path.join(path, "experiment.xenium")) as f:
         experiment = json.load(f)
