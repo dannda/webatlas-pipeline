@@ -306,7 +306,7 @@ def concat_matrices(
         if adata.var[col].dtype == "category"
         and adata.var[col].cat.categories.dtype in ["string", "object"]
     ]:
-        adata_concat.var[col] = adata_concat.var[col].add_categories([""])
+        adata_concat.var[col] = adata_concat.var[col].cat.add_categories([""])
         adata_concat.var[col] = adata_concat.var[col].fillna("")
 
     return adata_concat
