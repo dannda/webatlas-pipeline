@@ -118,6 +118,7 @@ def concat_matrix_from_obs(
     feature_name: str = "gene",
     concat_feature_name: str = None,
 ):
+    logging.info(f"Concatenating matrix from obs column {obs}")
     if isinstance(data, ad.AnnData):
         adata = data
     else:
@@ -134,6 +135,7 @@ def concat_matrix_from_obsm(
     feature_name: str = "gene",
     concat_feature_name: str = None,
 ):
+    logging.info(f"Concatenating matrix from obsm column {obsm}")
     if isinstance(data, ad.AnnData):
         adata = data
     else:
@@ -156,6 +158,7 @@ def concat_matrix_from_cell2location(
     fill_missing: bool = False,
     **kwargs,
 ):
+    logging.info(f"Concatenating matrix from cell2location output file {c2l_file}")
     sort = sort or sort_index is not None
     if isinstance(data, ad.AnnData):
         adata = data
@@ -235,6 +238,9 @@ def concat_matrices(
     concat_feature_name: str = "celltype",
 ):
     assert adata.shape[0] == ext_df.shape[0]
+    logging.info(
+        f"Concatenating matrix of shape {ext_df.shape} to adata.X of shape {adata.shape}"
+    )
 
     prev_features_bool = "is_{}".format(feature_name)
     new_features_bool = "is_{}".format(concat_feature_name)
@@ -288,6 +294,20 @@ def concat_matrices(
 
     for col in [col for col in adata.var_keys() if adata.var[col].dtype == bool]:
         adata_concat.var[col] = adata_concat.var[col].fillna(False)
+
+    for col in [
+        col for col in adata.var_keys() if adata.var[col].dtype in ["string", "object"]
+    ]:
+        adata_concat.var[col] = adata_concat.var[col].fillna("")
+
+    for col in [
+        col
+        for col in adata.var_keys()
+        if adata.var[col].dtype == "category"
+        and adata.var[col].cat.categories.dtype in ["string", "object"]
+    ]:
+        adata_concat.var[col] = adata_concat.var[col].add_categories([""])
+        adata_concat.var[col] = adata_concat.var[col].fillna("")
 
     return adata_concat
 
