@@ -102,7 +102,6 @@ def h5ad_to_zarr(
             data=X,
             chunks=(m, chunk_size),
             shards=shards,
-            dtype="float32",
         )
 
         if consolidate_metadata:
