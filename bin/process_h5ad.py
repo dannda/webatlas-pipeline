@@ -26,6 +26,7 @@ os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
 warnings.filterwarnings("ignore")
 logging.getLogger().setLevel(logging.INFO)
 ad.settings.zarr_write_format = 3
+ad.settings.allow_write_nullable_strings = False
 zarr.config.set({"async.concurrency": 1})
 
 
