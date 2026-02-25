@@ -21,7 +21,11 @@ logging.getLogger().setLevel(logging.INFO)
 
 
 def reindex_and_concat(
-    path: str, offset: int, features: str = None, args: dict[str, T.Any] = {}, **kwargs
+    path: str,
+    offset: int = 0,
+    features: str = None,
+    args: dict[str, T.Any] = {},
+    **kwargs,
 ):
     adata = read_anndata(path)
 
@@ -39,7 +43,7 @@ def reindex_and_concat(
 
 def reindex_anndata(
     data: Union[ad.AnnData, str],
-    offset: int,
+    offset: int = 0,
     no_save: bool = True,
     out_filename: str = None,
     **kwargs,
