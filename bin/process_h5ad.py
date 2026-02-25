@@ -53,18 +53,28 @@ def h5ad_to_zarr(
         adata (AnnData, optional): AnnData object to process. Supersedes `path`.
             Defaults to None.
         chunk_size (int, optional): Output Zarr column chunk size. Defaults to 10.
-        batch_processing (bool, optional): If the expression matrix will be written to Zarr incrementally.
-            Use to avoid loading the whole AnnData into memory. Defaults to False.
+        batch_processing (bool, optional): If the expression matrix will be written
+            to Zarr incrementally. Use to avoid loading the whole AnnData into memory.
+            Defaults to False.
         batch_size (int, optional): The amount of rows (if matrix is in CSR format)
             or columns (if matrix is dense or in CSC format) of the expression matrix
             to process at a time when batch processing. Defaults to 10000.
+        consolidate_metadata (bool, optional): Whether to consolidate Zarr metadata
+            after writing. Defaults to True.
+        convert_strings_to_categoricals (bool, optional): Whether to convert string
+            columns to categorical when writing to Zarr. Defaults to False.
+        chunks_per_shard (int, optional): Number of chunks per shard for Zarr
+            sharded arrays. Defaults to 100.
+        append (bool, optional): If True, append to existing Zarr array instead of
+            creating new. Defaults to False.
 
     Raises:
-        SystemError: If `batch_processing` is True and the matrix contains an `indptr` key
-            but the matrix is not in scipy.sparse.csr_matrix nor scipy.sparse.csc_matrix format
+        SystemError: If `batch_processing` is True and the matrix contains
+            an `indptr` key but the matrix is not in scipy.sparse.csr_matrix
+            nor scipy.sparse.csc_matrix format
 
     Returns:
-        str: Output Zarr filename
+        str: Output Zarr directory path
     """
 
     zarr_dir = (
@@ -89,7 +99,8 @@ def h5ad_to_zarr(
         # @TODO: support batch processing to avoid .toarray() of whole matrix
         # matrix sparse to dense
         if isinstance(X, spmatrix):
-            # use toarray() as it generates a ndarray, instead of todense() which generates a matrix
+            # use toarray() as it generates a ndarray
+            # instead of todense() which generates a matrix
             X = X.toarray()
 
         if chunks_per_shard:
@@ -328,18 +339,31 @@ def preprocess_anndata(
     sample: str = None,
     **kwargs,
 ):
-    """This function preprocesses an AnnData object, ensuring correct dtypes for zarr conversion
+    """This function preprocesses an AnnData object, ensuring correct dtypes
+        for zarr conversion
 
     Args:
         adata (AnnData): AnnData object to preprocess.
-        compute_embeddings (bool, optional): If `X_umap` and `X_pca` embeddings will be computed.
-            Defaults to False.
+        compute_embeddings (bool, optional): If `X_umap` and `X_pca` embeddings
+            will be computed. Defaults to False.
         var_index (str, optional): Alternative `var` column name with `var` names
             to be used in the visualization. Defaults to None.
-        obs_subset (tuple(str, T.Any), optional): Tuple containing an `obs` column name and one or more values
-            to use to subset the AnnData object. Defaults to None.
-        var_subset (tuple(str, T.Any), optional): Tuple containing a `var` column name and one or more values
-            to use to subset the AnnData object. Defaults to None.
+        obs_subset (tuple(str, T.Any), optional): Tuple containing an `obs` column name
+            and one or more values to use to subset the AnnData object.
+            Defaults to None.
+        var_subset (tuple(str, T.Any), optional): Tuple containing a `var` column name
+            and one or more values to use to subset the AnnData object.
+            Defaults to None.
+        spatial_shape (tuple[int, int], optional): Shape (height, width)
+            for spatial rotation. Defaults to None.
+        rotate_degrees (Literal[90, 180, 270], optional): Degrees to rotate
+            spatial coordinates. Defaults to None.
+        rescale_factor (float, optional): Factor to rescale spatial coordinates.
+            Defaults to None.
+        sample (str, optional): Sample name to filter spatial data. Defaults to None.
+
+    Returns:
+        AnnData: Preprocessed AnnData object ready for Zarr conversion.
     """
 
     adata = subset_anndata(
@@ -449,14 +473,16 @@ def batch_process_sparse(
     """Function to incrementally load and write a sparse matrix to Zarr
 
     Args:
-        file (str): Path to h5ad file
-        zarr_dir (str): Path to output Zarr dir
-        m (int): Number of rows in the matrix
-        n (int): Number of columns in the matrix
-        batch_size (int): Number of rows/columns to load and write at a time
-        chunk_size (int): Output Zarr column chunk size
+        file (str): Path to h5ad file.
+        zarr_dir (str): Path to output Zarr directory.
+        m (int): Number of rows in the matrix.
+        n (int): Number of columns in the matrix.
+        batch_size (int): Number of rows/columns to load and write at a time.
+        chunk_size (int): Output Zarr column chunk size.
+        shards (str, optional): Zarr shard configuration. Defaults to None.
         is_csc (bool, optional): If matrix is in CSC format instead of CSR format.
             Defaults to False.
+        append (bool, optional): If True, append to existing array. Defaults to False.
     """
 
     logging.info("Processing sparse {} matrix".format("CSC" if is_csc else "CSR"))
@@ -511,12 +537,14 @@ def batch_process_array(
     """Function to incrementally load and write a dense matrix to Zarr
 
     Args:
-        file (str): Path to h5ad file
-        zarr_dir (str): Path to output Zarr dir
-        m (int): Number of rows in the matrix
-        n (int): Number of columns in the matrix
-        batch_size (int): Number of columns to load and write at a time
-        chunk_size (int): Output Zarr column chunk size
+        file (str): Path to h5ad file.
+        zarr_dir (str): Path to output Zarr directory.
+        m (int): Number of rows in the matrix.
+        n (int): Number of columns in the matrix.
+        batch_size (int): Number of columns to load and write at a time.
+        chunk_size (int): Output Zarr column chunk size.
+        shards (str, optional): Zarr shard configuration. Defaults to None.
+        append (bool, optional): If True, append to existing array. Defaults to False.
     """
 
     logging.info("Processing dense matrix")
