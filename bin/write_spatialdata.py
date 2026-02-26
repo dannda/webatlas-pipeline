@@ -6,14 +6,16 @@ Processes H5AD and images into SpatialData
 """
 
 from __future__ import annotations
-from typing import Union
+
 import logging
 import warnings
-import fire
-import tifffile as tf
+from typing import Union
+
 import anndata as ad
-import xarray as xr
+import fire
 import spatialdata as sd
+import tifffile as tf
+import xarray as xr
 from dask_image.imread import imread
 
 warnings.filterwarnings("ignore")

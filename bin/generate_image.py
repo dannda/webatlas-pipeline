@@ -6,13 +6,16 @@ Generates raw/label images from spatial data
 """
 
 from __future__ import annotations
-import fire
+
 import json
+
+import fire
+from fire.decorators import SetParseFns
+from process_merscope import merscope_label, merscope_raw
 from process_spaceranger import visium_label
 from process_xenium import xenium_label
-from process_merscope import merscope_label, merscope_raw
+
 from utils import tiff_image_size
-from fire.decorators import SetParseFns
 
 
 @SetParseFns(args_json=str)

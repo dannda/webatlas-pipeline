@@ -6,21 +6,19 @@ Generates a Vitessce View config
 """
 
 from __future__ import annotations
-from itertools import zip_longest
-import typing as T
-import os
-import fire
+
 import json
-from vitessce import (
-    VitessceConfig,
-    DataType as dt,
-    FileType as ft,
-    CoordinationType as ct,
-    ViewType as vt,
-    hconcat,
-    vconcat,
-)
+import os
+import typing as T
+from itertools import zip_longest
+
+import fire
 from constants.suffixes import ANNDATA_ZARR_SUFFIX, MOLECULES_JSON_SUFFIX
+from vitessce import CoordinationType as ct
+from vitessce import DataType as dt
+from vitessce import FileType as ft
+from vitessce import ViewType as vt
+from vitessce import VitessceConfig, hconcat, vconcat
 
 
 def write_json(

@@ -6,15 +6,16 @@ Calls file processing functions
 """
 
 from __future__ import annotations
-import fire
+
 import json
 
+import fire
+from fire.decorators import SetParseFns
 from process_h5ad import h5ad_to_zarr
+from process_merscope import merscope_to_zarr
 from process_molecules import tsv_to_json
 from process_spaceranger import spaceranger_to_zarr
-from process_merscope import merscope_to_zarr
 from process_xenium import xenium_to_zarr
-from fire.decorators import SetParseFns
 
 
 @SetParseFns(args_json=str)

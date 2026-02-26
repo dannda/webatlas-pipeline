@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import gc
+import json
 import logging
 import os
 from pathlib import Path
@@ -8,14 +9,13 @@ from typing import Union
 
 import anndata as ad
 import fire
-import json
 import h5py
 import numpy as np
 import pandas as pd
 import zarr
+from fire.decorators import SetParseFns
 from process_h5ad import h5ad_to_zarr
 from scipy.sparse import csc_matrix, csr_matrix, hstack, spmatrix
-from fire.decorators import SetParseFns
 
 os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
 logging.getLogger().setLevel(logging.INFO)
