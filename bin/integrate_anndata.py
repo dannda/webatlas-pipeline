@@ -3,40 +3,44 @@
 import gc
 import logging
 import os
-import typing as T
 from pathlib import Path
 from typing import Union
 
 import anndata as ad
 import fire
+import json
 import h5py
 import numpy as np
 import pandas as pd
 import zarr
 from process_h5ad import h5ad_to_zarr
 from scipy.sparse import csc_matrix, csr_matrix, hstack, spmatrix
+from fire.decorators import SetParseFns
 
 os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
 logging.getLogger().setLevel(logging.INFO)
 
 
+@SetParseFns(args_json=str)
 def reindex_and_concat(
     path: str,
     offset: int = 0,
     features: str = None,
-    args: dict[str, T.Any] = {},
+    args_json: str = "{}",
     **kwargs,
 ):
+    args = {**json.loads(args_json), **kwargs}
+
     adata = read_anndata(path)
 
-    adata = reindex_anndata(adata, offset, **args, **kwargs)
+    adata = reindex_anndata(adata, offset, **args)
     if features:
-        adata = concat_features(adata, features, **args, **kwargs)
+        adata = concat_features(adata, features, **args)
 
     out_filename = "reindexed-concat-{}".format(
         os.path.splitext(os.path.basename(path))[0]
     )
-    write_anndata(adata, out_filename, **args, **kwargs)
+    write_anndata(adata, out_filename, **args)
 
     return
 
