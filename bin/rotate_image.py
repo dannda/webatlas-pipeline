@@ -73,7 +73,7 @@ def rotate_image(
                 "image-description",
                 ET.tostring(root, encoding="unicode", xml_declaration=True),
             )
-    except:
+    except Exception:
         pass
 
     rotated_image.tiffsave(output_path, bigtiff=True)

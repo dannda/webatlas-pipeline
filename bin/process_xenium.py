@@ -32,13 +32,13 @@ def xenium_to_anndata(
 
     Args:
         path (str): Path to a xenium output directory
-        spatial_as_pixel (bool, optional): Boolean indicating whether spatial coordinates should be
-        converted to pixels. Defaults to True.
+        spatial_as_pixel (bool, optional): Boolean indicating whether spatial
+        coordinates should be converted to pixels. Defaults to True.
         resolution (float, optional): Pixel resolution. Defaults to 0.2125.
         load_clusters (bool, optional): If cluster files should be included in the
             AnnData object. Defaults to True.
-        load_embeddings (bool, optional): If embedding coordinates files should be included
-            in the AnnData object. Defaults to True.
+        load_embeddings (bool, optional): If embedding coordinates files should
+            be included in the AnnData object. Defaults to True.
 
     Returns:
         AnnData: AnnData object created from the xenium output data
@@ -117,10 +117,11 @@ def xenium_to_zarr(
     Args:
         path (str): Path to a xenium output directory
         stem (str): Prefix for the output Zarr filename
-        spatial_as_pixel (bool, optional): Boolean indicating whether spatial coordinates should be
-        converted to pixels. Defaults to True.
+        spatial_as_pixel (bool, optional): Boolean indicating whether spatial
+            coordinates should be converted to pixels. Defaults to True.
         resolution (float, optional): Pixel resolution. Defaults to 0.2125.
-        save_h5ad (bool, optional): If the AnnData object should also be written to an h5ad file. Defaults to False.
+        save_h5ad (bool, optional): If the AnnData object should also be written to
+            an h5ad file. Defaults to False.
 
     Returns:
         str: Output Zarr filename

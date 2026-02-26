@@ -213,7 +213,8 @@ def concat_matrix_from_cell2location(
                         raise Exception("Non-matching indices present.")
                     else:
                         logging.info(
-                            "Filling missing indices in cell2location output with NaN values."
+                            "Filling missing indices in cell2location output "
+                            "with NaN values."
                         )
                         c2l_adata, idx = fill_missing_indices(
                             idx, data_idx, adata, c2l_adata, sort_index
@@ -245,7 +246,8 @@ def concat_matrices(
 ):
     assert adata.shape[0] == ext_df.shape[0]
     logging.info(
-        f"Concatenating matrix of shape {ext_df.shape} to adata.X of shape {adata.shape}"
+        f"Concatenating matrix of shape {ext_df.shape} to adata.X "
+        f"of shape {adata.shape}"
     )
 
     prev_features_bool = "is_{}".format(feature_name)

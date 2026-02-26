@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import tifffile as tf
+import scanpy as sc
 
 
 def tiff_image_size(

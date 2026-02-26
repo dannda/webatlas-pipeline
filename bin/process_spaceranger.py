@@ -35,8 +35,8 @@ def spaceranger_to_anndata(
         path (str): Path to a SpaceRanger output directory
         load_clusters (bool, optional): If cluster files should be included in the
             AnnData object. Defaults to True.
-        load_embeddings (bool, optional): If embedding coordinates files should be included
-            in the AnnData object. Defaults to True.
+        load_embeddings (bool, optional): If embedding coordinates files should
+            be included in the AnnData object. Defaults to True.
         load_raw (bool, optional): If the raw matrix count file should be loaded
             instead of the filtered matrix. Defaults to False.
 
@@ -113,12 +113,12 @@ def spaceranger_to_zarr(
         stem (str): Prefix for the output Zarr filename
         load_clusters (bool, optional): If cluster files should be included in the
             AnnData object. Defaults to True.
-        load_embeddings (bool, optional): If embedding coordinates files should be included
-            in the AnnData object. Defaults to True.
+        load_embeddings (bool, optional): If embedding coordinates files should
+            be included in the AnnData object. Defaults to True.
         load_raw (bool, optional): If the raw matrix count file should be loaded
             instead of the filtered matrix. Defaults to False.
-        save_h5ad (bool, optional): If the AnnData object should also be written to an h5ad file.
-            Defaults to False.
+        save_h5ad (bool, optional): If the AnnData object should also be written to
+            an h5ad file. Defaults to False.
 
     Returns:
         str: Output Zarr filename
@@ -151,9 +151,11 @@ def visium_label(
         stem (str): Prefix for the output image filename.
         file_path (str): Path to the h5ad file or spaceranger output directory.
         shape (tuple[int, int], optional): Output image shape. Defaults to None.
-        obs_subset (tuple(str, T.Any), optional): Tuple containing an `obs` column name and one or more values
-            to use to subset the AnnData object. Defaults to None.
-        sample_id (str, optional): Sample ID string within the Anndata object. Defaults to None.
+        obs_subset (tuple(str, T.Any), optional): Tuple containing an `obs` column name
+            and one or more values to use to subset the AnnData object.
+            Defaults to None.
+        sample_id (str, optional): Sample ID string within the Anndata object.
+            Defaults to None.
         relative_size (str, optional): Optional numerical `obs` column name that holds
             a multiplier for the spot diameter. Only useful for data that has been
             processed to merge spots. Defaults to None.
