@@ -152,14 +152,15 @@ def xenium_label(
     else:
         cells_file = path
 
-    z = zarr.open(cells_file, mode="r")
+    store = zarr.storage.ZipStore(cells_file, mode="r")
+    z = zarr.open(store, mode="r")
 
     with open(os.path.join(path, "experiment.xenium")) as f:
         experiment = json.load(f)
     sw_version = float(experiment["analysis_sw_version"][7:10])
 
     if sw_version < 1.3:
-        ids = z["cell_id"]
+        ids = z["cell_id"][:]
     else:
         ids = z["cell_id"][:, 0]
 
@@ -170,9 +171,9 @@ def xenium_label(
 
     # starting on v2.0 vertices change location
     if sw_version < 2.0:
-        pols = z["polygon_vertices"][1]
+        pols = z["polygon_vertices"]["1"]
     else:
-        pols = z["polygon_sets"][1]["vertices"]
+        pols = z["polygon_sets"]["1"]["vertices"]
 
     label_img = np.zeros((shape[0], shape[1]), dtype=np.min_scalar_type(max(ids)))
 
