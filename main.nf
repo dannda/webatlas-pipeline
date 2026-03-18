@@ -299,17 +299,17 @@ workflow Full_pipeline {
 
     Process_images()
 
-    Output_to_config(
-        Process_files.out.file_paths,
-        Process_images.out.img_zarrs
-    )
+    // Output_to_config(
+    //     Process_files.out.file_paths,
+    //     Process_images.out.img_zarrs
+    // )
         
-    if (params.write_spatialdata) {
-        Output_to_spatialdata(
-            Process_files.out.anndata_files,
-            Process_images.out.img_tifs
-        )
-    }
+    // if (params.write_spatialdata) {
+    //     Output_to_spatialdata(
+    //         Process_files.out.anndata_files,
+    //         Process_images.out.img_tifs
+    //     )
+    // }
     
 }
 

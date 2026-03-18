@@ -72,6 +72,7 @@ def reindex_anndata(
 def concat_features(
     data: Union[ad.AnnData, str],
     features: str,
+    features_type: str = "cell2location",
     no_save: bool = True,
     out_filename: str = None,
     **kwargs,
@@ -84,12 +85,20 @@ def concat_features(
             os.path.splitext(os.path.basename(data))[0]
         )
 
-    if features.endswith((".csv", ".h5ad")) and os.path.isfile(features):
+    if (
+        features_type == "cell2location"
+        and features.endswith((".csv", ".h5ad"))
+        and os.path.isfile(features)
+    ):
         adata = concat_matrix_from_cell2location(adata, features, **kwargs)
+    elif features.endswith(".csv") and os.path.isfile(features):
+        adata = concat_matrix_from_csv(adata, features, **kwargs)
     elif features.startswith("obs/"):
         adata = concat_matrix_from_obs(adata, features.split("/")[1], **kwargs)
     elif features.startswith("obsm/"):
         adata = concat_matrix_from_obsm(adata, features.split("/")[1], **kwargs)
+    else:
+        raise Exception("Invalid features")
 
     if no_save:
         return adata
@@ -116,6 +125,28 @@ def intersect_features(*paths, **kwargs):
         gc.collect()
 
     return
+
+
+def concat_matrix_from_csv(
+    data: Union[ad.AnnData, str],
+    csv_path: str,
+    feature_name: str = "gene",
+    concat_feature_name: str = None,
+):
+    logging.info(f"Concatenating matrix from csv file {csv_path}")
+    if isinstance(data, ad.AnnData):
+        adata = data
+    else:
+        adata = read_anndata(data)
+
+    ext_df = pd.read_csv(csv_path, index_col=0)
+    ext_df.index = ext_df.index.astype(str)
+
+    # @TODO: add sort as in cell2location case
+    if adata.obs.index != ext_df.index:
+        raise Exception("Indices do not match between AnnData object and csv file. ")
+
+    return concat_matrices(adata, ext_df, feature_name, concat_feature_name)
 
 
 def concat_matrix_from_obs(
