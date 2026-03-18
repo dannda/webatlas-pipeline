@@ -106,7 +106,7 @@ process process_anndata {
     integrate_anndata.py reindex_and_concat \
         --path ${anndata} \
         --offset ${offset} \
-        ${features_str} ${args_str}
+        ${features_str} ${feature_name_str} ${args_str}
     """
 }
 
