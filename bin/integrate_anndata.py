@@ -143,7 +143,7 @@ def concat_matrix_from_csv(
     ext_df.index = ext_df.index.astype(str)
 
     # @TODO: add sort as in cell2location case
-    if adata.obs.index != ext_df.index:
+    if not adata.obs.index.equals(ext_df.index):
         raise Exception("Indices do not match between AnnData object and csv file. ")
 
     return concat_matrices(adata, ext_df, feature_name, concat_feature_name)
