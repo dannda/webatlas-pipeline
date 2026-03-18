@@ -281,6 +281,6 @@ workflow {
         .map{[params.project, config_map, it]}
         .set{data_for_config}
     
-    Build_multimodal_config(data_for_config)
+    // Build_multimodal_config(data_for_config)
 
 }
