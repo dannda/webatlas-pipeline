@@ -75,7 +75,7 @@ process process_label {
     """
     integrate_image.py \
         --label_image_path ${label_image} \
-        --offset ${offset} \
+        --offset ${offset ?: 0} \
         --out_filename ${reindexed_label_image}
     """
 }
@@ -105,7 +105,7 @@ process process_anndata {
     """
     integrate_anndata.py reindex_and_concat \
         --path ${anndata} \
-        --offset ${offset} \
+        --offset ${offset ?: 0} \
         ${features_str} ${feature_name_str} ${args_str}
     """
 }
