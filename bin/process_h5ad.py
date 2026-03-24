@@ -413,11 +413,11 @@ def preprocess_anndata(
         adata.var.index = adata.var.index.astype(str)
     adata.var_names_make_unique()
 
-    adata = reindex_anndata_obs(adata)
-
     # turn obsm into a numpy array
     for k in adata.obsm_keys():
         adata.obsm[k] = np.array(adata.obsm[k])
+
+    adata = reindex_anndata_obs(adata)
 
     # compute embeddings if not already stored in object
     if compute_embeddings:
