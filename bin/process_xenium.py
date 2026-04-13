@@ -135,8 +135,45 @@ def xenium_to_zarr(
     return zarr_file
 
 
+def get_filtered_indices_from_anndata(
+    xenium_path: str,
+    anndata_path: str,
+    obs_subset: tuple[str, str] | None = None,
+    ids_column: str | None = "cell_id",
+) -> np.ndarray:
+    adata = sc.read_h5ad(anndata_path, backed="r")
+
+    cells_file = os.path.join(xenium_path, "cells.csv.gz")
+    cells = pd.read_csv(
+        cells_file, compression="gzip", index_col="cell_id", usecols=["cell_id"]
+    )
+
+    if obs_subset is not None:
+        obs_subset[1] = (
+            [obs_subset[1]]
+            if not isinstance(obs_subset[1], (list, tuple))
+            else obs_subset[1]
+        )
+        adata = adata[adata.obs[obs_subset[0]].isin(obs_subset[1])]
+
+    if ids_column is not None:
+        anndata_ids = adata.obs[ids_column]
+    else:
+        anndata_ids = adata.obs.index
+
+    filtered_indices = cells.index.get_indexer(anndata_ids)
+    filtered_indices = filtered_indices[filtered_indices != -1]
+
+    return filtered_indices
+
+
 def xenium_label(
-    stem: str, path: str, shape: tuple[int, int], resolution: float = 0.2125
+    stem: str,
+    path: str,
+    shape: tuple[int, int],
+    resolution: float = 0.2125,
+    *,
+    filter_options: dict | None = None,
 ) -> None:
     """This function writes a label image tif file with drawn labels according to
     cell segmentation polygons from Xenium output cells.zarr.zip file
@@ -146,6 +183,14 @@ def xenium_label(
         path (str): Path to the Xenium output directory or cells.zarr.zip file
         shape (tuple[int, int]): Output image shape. Defaults to None.
         resolution (float, optional): Pixel resolution. Defaults to 0.2125.
+        filter_options (dict, optional): Dictionary of options to filter the cells
+            to be included in the label image.
+            If None, all cells are included. Defaults to None.
+            E.g. dict(
+                path = "",
+                obs_subset = tuple("column_name", "value"),
+                ids_column = "cell_id",
+            )
     """
     if os.path.isdir(path):
         cells_file = os.path.join(path, "cells.zarr.zip")
@@ -164,6 +209,27 @@ def xenium_label(
     else:
         ids = z["cell_id"][:, 0]
 
+    if filter_options is not None:
+        if not os.path.isdir(path):
+            raise ValueError(
+                "filter_options can only be used when path is a xenium output directory"
+            )
+        if "path" not in filter_options:
+            raise ValueError(
+                "filter_options must include a path to an h5ad file."
+                "Other options are not supported yet."
+            )
+        filtered_indices = get_filtered_indices_from_anndata(
+            xenium_path=path,
+            anndata_path=filter_options["path"],
+            obs_subset=filter_options.get("obs_subset", None),
+            ids_column=filter_options.get("ids_column", "cell_id"),
+        )
+    else:
+        filtered_indices = np.arange(len(ids))
+
+    ids = ids[filtered_indices]
+
     # starting on v1.3 cell_id looks like "aaabinlp-1"
     # pd.Categorical.codes converts them to int
     # this is required so the label image matches the h5ad ids
@@ -171,9 +237,11 @@ def xenium_label(
 
     # starting on v2.0 vertices change location
     if sw_version < 2.0:
-        pols = z["polygon_vertices"]["1"]
+        pols = z["polygon_vertices"]["1"][:]
     else:
-        pols = z["polygon_sets"]["1"]["vertices"]
+        pols = z["polygon_sets"]["1"]["vertices"][:]
+
+    pols = pols[filtered_indices]
 
     label_img = np.zeros((shape[0], shape[1]), dtype=np.min_scalar_type(max(ids)))
 

@@ -270,7 +270,7 @@ process Generate_image {
     publishDir outdir_with_version, mode: "copy", enabled: params.publish_generated_img
 
     input:
-    tuple val(stem), val(prefix), val(img_type), path(file_path), val(file_type), path(ref_img), val(args)
+    tuple val(stem), val(prefix), val(img_type), path(file_path), val(file_type), path(ref_img), path(filter_path), val(args)
 
     output:
     tuple val(stem), val(prefix), val(img_type), path("${stem_str}*.tif")
@@ -278,7 +278,10 @@ process Generate_image {
     script:
     stem_str = ([*stem, prefix] - null - "").join("-")
     ref_img_str = ref_img.name != "NO_REF" ? "--ref_img ${ref_img}" : ""
-    args_str = args ? "--args-json '" + new JsonBuilder(args).toString() + "'" : ""
+    (filter_args, base_args) = args.groupBy { k, v -> k.startsWith("filter_") }.with { [it[true] ?: [:], it[false] ?: [:]] }
+    filter_options = [path: filter_path.name != "NO_FILE" ? filter_path : null] + filter_args.collectEntries { k, v -> [k.replaceFirst("filter_", ""), v] }
+    all_args = base_args + (filter_options.path ? [filter_options: filter_options] : [:])
+    args_str = all_args ? "--args-json '" + new JsonBuilder(all_args).toString() + "'" : ""
     """
     generate_image.py \
         --stem ${stem_str} \
@@ -385,6 +388,7 @@ workflow Process_images {
             file(data_map.data_path),
             data_map.file_type,
             file(data_map.ref_img ?: "NO_REF") ,
+            file(data_map.filter_path ?: "NO_FILE"),
             data_map.args ?: [:]
         ]
     }
