@@ -39,14 +39,14 @@ def parseExtendFeature (extend_feature){
     }
     else if (extend_feature instanceof String ){
         return [
-            file(extend_feature.endsWith(".h5ad") ? extend_feature : "NO_FT"),
+            file((extend_feature.endsWith(".h5ad") || extend_feature.endsWith(".csv")) ? extend_feature : "NO_FT"),
             [:]
         ]
     }
     else if (extend_feature instanceof Map){
         if (extend_feature["path"]){
-            if (!(extend_feature.path instanceof String && extend_feature.path.endsWith(".h5ad"))){
-                error "Invalid value for `extend_feature.path`. Expecting an .h5ad file."
+            if (!(extend_feature.path instanceof String && (extend_feature.path.endsWith(".h5ad") || extend_feature.path.endsWith(".csv")))){
+                error "Invalid value for `extend_feature.path`. Expecting an .h5ad or .csv file."
             }
             return [ file(extend_feature.path), extend_feature.args ?: [:] ]
         }
@@ -75,7 +75,7 @@ process process_label {
     """
     integrate_image.py \
         --label_image_path ${label_image} \
-        --offset ${offset} \
+        --offset ${offset ?: 0} \
         --out_filename ${reindexed_label_image}
     """
 }
@@ -97,13 +97,16 @@ process process_anndata {
     features_str = features
         ? "--features ${features_file.name != 'NO_FT' ? features_file : features}"
         : ""
+    feature_name_str = config_map.extend_feature_name
+        ? "--concat_feature_name ${config_map.extend_feature_name}"
+        : ""
     args_str = features_file.name != 'NO_FT' && features_args
-        ? "--args '" + new JsonBuilder(features_args).toString() + "'" : ""
+        ? "--args-json '" + new JsonBuilder(features_args).toString() + "'" : ""
     """
     integrate_anndata.py reindex_and_concat \
         --path ${anndata} \
-        --offset ${offset} \
-        ${features_str} ${args_str}
+        --offset ${offset ?: 0} \
+        ${features_str} ${feature_name_str} ${args_str}
     """
 }
 
@@ -141,12 +144,15 @@ process Build_multimodal_config {
 
     script:
     url_str = config_map.url?.trim() ? "--url \"${config_map.url.trim()}\"" : ""
+    extended_features_str = config_map.extend_feature_name
+        ? "--extended_features ${config_map.extend_feature_name}"
+        : ""
     datasets_str = new JsonBuilder(datasets).toString()
     """
     build_config_multimodal.py \
         --project "${project}" \
         --datasets '${datasets_str}' \
-        --extended_features "${config_map.extend_feature_name}" \
+        ${extended_features_str} \
         ${url_str} \
         --title "${config_map.title}" \
         --description "${config_map.description}"
@@ -275,6 +281,6 @@ workflow {
         .map{[params.project, config_map, it]}
         .set{data_for_config}
     
-    Build_multimodal_config(data_for_config)
+    // Build_multimodal_config(data_for_config)
 
 }
